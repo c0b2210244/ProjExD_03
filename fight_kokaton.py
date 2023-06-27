@@ -40,14 +40,18 @@ class Bird:
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
-        self.img = pg.transform.flip(  # 左右反転
-            pg.transform.rotozoom(  # 2倍に拡大
-                pg.image.load(f"ex03/fig/{num}.png"), 
-                0, 
-                2.0), 
-            True, 
-            False
-        )
+        self.img = pg.image.load(f"ex03/fig/{num}.png") 
+        self.bird_direction = {
+            (-5, 0): pg.transform.rotozoom(self.img, 0, 2.0),
+            (-5, -5): pg.transform.rotozoom(self.img, -45, 2.0),
+            (-5, +5): pg.transform.rotozoom(self.img, 45, 2.0),
+            (0, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
+            (+5, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
+            (+5, -5): pg.transform.flip(pg.transform.rotozoom(self.img, -45, 2.0), True, False),
+            (+5, +5): pg.transform.flip(pg.transform.rotozoom(self.img, 45, 2.0), True, False),
+            (0, +5): pg.transform.flip(pg.transform.rotozoom(self.img, 90, 2.0), True, False),
+            (0, -5): pg.transform.flip(pg.transform.rotozoom(self.img, -90, 2.0), True, False),
+        }
         self.rct = self.img.get_rect()
         self.rct.center = xy
 
@@ -74,7 +78,7 @@ class Bird:
         self.rct.move_ip(sum_mv)
         if check_bound(self.rct) != (True, True):
             self.rct.move_ip(-sum_mv[0], -sum_mv[1])
-        screen.blit(self.img, self.rct)
+        screen.blit(self.bird_direction[tuple(sum_mv)], self.rct)
 
 
 class Bomb:
@@ -119,8 +123,8 @@ class Beam:
         """
         self.img = pg.image.load("ex03/fig/beam.png")
         self.rct = self.img.get_rect()
-        self.rct.left = bird.rct.right
-        self.rct.centery = bird.rct.centery
+        self.rct.centerx = bird.rct.centerx + 90
+        self.rct.centery = bird.rct.centery + 25
         self.vx, self.vy = +5, 0
     
     def update(self, screen: pg.Surface):
@@ -167,8 +171,6 @@ def main():
                 bird.change_img(6, screen)
                 pg.display.update()
                 time.sleep(1)
-                bird.change_img(8, screen)
-                pg.display.update()
         
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)

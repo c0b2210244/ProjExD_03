@@ -40,18 +40,19 @@ class Bird:
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
-        self.img = pg.transform.flip(pg.image.load(f"ex03/fig/{num}.png"), True, False)
-        self.bird_direction = {
-            (-5, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
-            (-5, -5): pg.transform.flip(pg.transform.rotozoom(self.img, 45, 2.0), True, False),
-            (-5, +5): pg.transform.flip(pg.transform.rotozoom(self.img, -45, 2.0), True, False),
-            (0, 0): pg.transform.rotozoom(self.img, 0, 2.0),
-            (+5, 0): pg.transform.rotozoom(self.img, 0, 2.0),
-            (+5, -5): pg.transform.rotozoom(self.img, +45, 2.0),
-            (+5, +5): pg.transform.rotozoom(self.img, -45, 2.0),
-            (0, +5): pg.transform.rotozoom(self.img, -90, 2.0),
-            (0, -5): pg.transform.rotozoom(self.img, 90, 2.0),
+        img0 = pg.transform.rotozoom(pg.image.load(f"ex03/fig/{num}.png"), 0, 2.0)  # 左向き
+        img = pg.transform.flip(img0, True, False)  # 右向き
+        self.imgs = {
+            (+5, 0): img,  # 右
+            (+5, -5): pg.transform.rotozoom(img, 45, 1.0),  # 右上
+            (0, -5): pg.transform.rotozoom(img, 90, 1.0),  # 上
+            (-5, -5): pg.transform.rotozoom(img0, -45, 1.0),  # 左上
+            (-5, 0): img0,  # 左
+            (-5, +5): pg.transform.rotozoom(img0, 45, 1.0),  # 左下
+            (0, +5): pg.transform.rotozoom(img, -90, 1.0),  # 下
+            (+5, +5): pg.transform.rotozoom(img, -45, 1.0),  # 右下
         }
+        self.img = self.imgs[(+5, 0)]  # デフォルト：右向き
         self.rct = self.img.get_rect()
         self.rct.center = xy
 
@@ -76,25 +77,23 @@ class Bird:
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
         self.rct.move_ip(sum_mv)
-        if check_bound(self.rct) != (True, True):
-            self.rct.move_ip(-sum_mv[0], -sum_mv[1])
-        screen.blit(self.bird_direction[tuple(sum_mv)], self.rct)
+        if not (sum_mv[0] == 0 and sum_mv[1] == 0):  # 何かしらの矢印キーが押されていたら
+            self.img = self.imgs[tuple(sum_mv)] 
+        screen.blit(self.img, self.rct)
 
 
 class Bomb:
     """
     爆弾に関するクラス
     """
-    def __init__(self):
+    def __init__(self, color: tuple[int, int, int], rad: int):
         """
         引数に基づき爆弾円Surfaceを生成する
         引数1 color：爆弾円の色タプル
         引数2 rad：爆弾円の半径
         """
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-        size = random.randint(10, 20)
-        self.img = pg.Surface((2*size, 2*size))
-        pg.draw.circle(self.img, random.choice(colors), (size, size), size)
+        self.img = pg.Surface((2*rad, 2*rad))
+        pg.draw.circle(self.img, color, (rad, rad), rad)
         self.img.set_colorkey((0, 0, 0))
         self.rct = self.img.get_rect()
         self.rct.center = random.randint(0, WIDTH), random.randint(0, HEIGHT)
@@ -137,6 +136,34 @@ class Beam:
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)
 
+
+class Explosion:
+    """
+    爆発エフェクトに関するクラス
+    """
+    def __init__(self, bomb_rct):
+        """
+        引数に基づき爆発Surfaceを生成する
+        引数 bomb_rct : 爆発した爆弾の座標
+        """
+        self.img = pg.image.load("ex03/fig/explosion.gif")
+        self.img_list = [
+            pg.transform.flip(self.img, False, False), 
+            pg.transform.flip(self.img, True, True)
+            ]
+        self.rct = self.img.get_rect()
+        self.rct.center = bomb_rct.center
+        self.life = 30
+
+    def update(self, screen):
+        self.tmp = 0
+        if self.life % 2 == 0:
+            screen.blit(self.img_list[0], self.rct)
+        elif self.life % 2 == 1:
+            screen.blit(self.img_list[1], self.rct)
+        self.life -= 1
+
+
 class Score:
     """
     スコア表示に関するクラス
@@ -163,9 +190,10 @@ def main():
     score = Score()
     score.update(screen)
     bird = Bird(3, (900, 400))
+    explosion_list = []
     bombs_list = []
     for _ in range(NUM_OF_BOMBS):
-        bomb = Bomb()
+        bomb = Bomb([255, 0, 0], 10)
         bombs_list.append(bomb)
     beam = None
 
@@ -193,8 +221,10 @@ def main():
         for i in range(len(bombs_list)):
             if beam is not None:
                 if beam.rct.colliderect(bombs_list[i].rct):
+                    explosion = Explosion(bombs_list[i].rct)
+                    explosion_list.append(explosion)
                     beam = None
-                    bombs_list[i] = None
+                    bombs_list[i] = None    
                     score.num += 1
                     bird.change_img(6, screen)
                     pg.display.update()
@@ -206,6 +236,9 @@ def main():
             bombs_list[i].update(screen)
         if beam is not None:
             beam.update(screen)
+        explosion_list = [e for e in explosion_list if e.life > 0]
+        for i in range(len(explosion_list)):
+            explosion_list[i].update(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1

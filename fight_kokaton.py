@@ -1,3 +1,4 @@
+import math
 import random
 import sys
 import time
@@ -55,6 +56,7 @@ class Bird:
         self.img = self.imgs[(+5, 0)]  # デフォルト：右向き
         self.rct = self.img.get_rect()
         self.rct.center = xy
+        self.dire = (+5, 0)
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -79,6 +81,8 @@ class Bird:
         self.rct.move_ip(sum_mv)
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):  # 何かしらの矢印キーが押されていたら
             self.img = self.imgs[tuple(sum_mv)] 
+        if sum_mv != [0, 0]:
+            self.dire = tuple(sum_mv)
         screen.blit(self.img, self.rct)
 
 
@@ -122,11 +126,12 @@ class Beam:
         引数に基づきビームSurfaceを生成する
         引数 bird： Birdインスタンス
         """
-        self.img = pg.image.load("ex03/fig/beam.png")
+        self.img0 = pg.image.load("ex03/fig/beam.png")
+        self.vx, self.vy = bird.dire[0], bird.dire[1]
+        self.img = pg.transform.rotozoom(self.img0, math.degrees(math.atan2(-self.vy, self.vx)), 1.0)
         self.rct = self.img.get_rect()
-        self.rct.centerx = bird.rct.centerx + 90
-        self.rct.centery = bird.rct.centery + 25
-        self.vx, self.vy = +5, 0
+        self.rct.centerx = bird.rct.centerx + bird.rct.width * self.vx / 5
+        self.rct.centery = bird.rct.centery + bird.rct.height * self.vy / 5
     
     def update(self, screen: pg.Surface):
         """

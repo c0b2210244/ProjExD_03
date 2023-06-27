@@ -7,7 +7,7 @@ import pygame as pg
 
 WIDTH = 1600  # ゲームウィンドウの幅
 HEIGHT = 900  # ゲームウィンドウの高さ
-
+NUM_OF_BOMBS = 5 # 爆弾の数
 
 def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
     """
@@ -40,17 +40,17 @@ class Bird:
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
-        self.img = pg.image.load(f"ex03/fig/{num}.png") 
+        self.img = pg.transform.flip(pg.image.load(f"ex03/fig/{num}.png"), True, False)
         self.bird_direction = {
-            (-5, 0): pg.transform.rotozoom(self.img, 0, 2.0),
-            (-5, -5): pg.transform.rotozoom(self.img, -45, 2.0),
-            (-5, +5): pg.transform.rotozoom(self.img, 45, 2.0),
-            (0, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
-            (+5, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
-            (+5, -5): pg.transform.flip(pg.transform.rotozoom(self.img, -45, 2.0), True, False),
-            (+5, +5): pg.transform.flip(pg.transform.rotozoom(self.img, 45, 2.0), True, False),
-            (0, +5): pg.transform.flip(pg.transform.rotozoom(self.img, 90, 2.0), True, False),
-            (0, -5): pg.transform.flip(pg.transform.rotozoom(self.img, -90, 2.0), True, False),
+            (-5, 0): pg.transform.flip(pg.transform.rotozoom(self.img, 0, 2.0), True, False),
+            (-5, -5): pg.transform.flip(pg.transform.rotozoom(self.img, 45, 2.0), True, False),
+            (-5, +5): pg.transform.flip(pg.transform.rotozoom(self.img, -45, 2.0), True, False),
+            (0, 0): pg.transform.rotozoom(self.img, 0, 2.0),
+            (+5, 0): pg.transform.rotozoom(self.img, 0, 2.0),
+            (+5, -5): pg.transform.rotozoom(self.img, +45, 2.0),
+            (+5, +5): pg.transform.rotozoom(self.img, -45, 2.0),
+            (0, +5): pg.transform.rotozoom(self.img, -90, 2.0),
+            (0, -5): pg.transform.rotozoom(self.img, 90, 2.0),
         }
         self.rct = self.img.get_rect()
         self.rct.center = xy
@@ -85,14 +85,16 @@ class Bomb:
     """
     爆弾に関するクラス
     """
-    def __init__(self, color: tuple[int, int, int], rad: int):
+    def __init__(self):
         """
         引数に基づき爆弾円Surfaceを生成する
         引数1 color：爆弾円の色タプル
         引数2 rad：爆弾円の半径
         """
-        self.img = pg.Surface((2*rad, 2*rad))
-        pg.draw.circle(self.img, color, (rad, rad), rad)
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        size = random.randint(10, 20)
+        self.img = pg.Surface((2*size, 2*size))
+        pg.draw.circle(self.img, random.choice(colors), (size, size), size)
         self.img.set_colorkey((0, 0, 0))
         self.rct = self.img.get_rect()
         self.rct.center = random.randint(0, WIDTH), random.randint(0, HEIGHT)
@@ -140,7 +142,10 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))    
     bg_img = pg.image.load("ex03/fig/pg_bg.jpg")
     bird = Bird(3, (900, 400))
-    bomb = Bomb((255, 0, 0), 10)
+    bombs_list = []
+    for _ in range(NUM_OF_BOMBS):
+        bomb = Bomb()
+        bombs_list.append(bomb)
     beam = None
 
     clock = pg.time.Clock()
@@ -155,8 +160,8 @@ def main():
         
         screen.blit(bg_img, [0, 0])
         
-        if bomb is not None:
-            if bird.rct.colliderect(bomb.rct):
+        for i in range(len(bombs_list)):
+            if bird.rct.colliderect(bombs_list[i].rct):
                 # ゲームオーバー時に，こうかとん画像を切り替え，1秒間表示させる
                 bird.change_img(8, screen)
                 pg.display.update()
@@ -164,18 +169,20 @@ def main():
                 return
             
         # ビームが爆弾に当たった時にビームと爆弾を消滅させる処理
-        if beam is not None and bomb is not None:
-            if beam.rct.colliderect(bomb.rct):
-                beam = None
-                bomb = None
-                bird.change_img(6, screen)
-                pg.display.update()
-                time.sleep(1)
-        
+        for i in range(len(bombs_list)):
+            if beam is not None:
+                if beam.rct.colliderect(bombs_list[i].rct):
+                    beam = None
+                    bombs_list[i] = None
+                    bird.change_img(6, screen)
+                    time.sleep(1)
+                    pg.display.update()
+
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
-        if bomb is not None:
-            bomb.update(screen)
+        bombs_list = [bomb for bomb in bombs_list if bomb is not None]
+        for i in range(len(bombs_list)):
+            bombs_list[i].update(screen)
         if beam is not None:
             beam.update(screen)
         pg.display.update()
